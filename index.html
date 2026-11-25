@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REACH Video QR Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, sans-serif; background: #f4f6f8; color: #222; }
+  header { background: #17365d; color: #fff; padding: 24px 34px; }
+  header h1 { margin: 0 0 6px; font-size: 26px; }
+  header p { margin: 0; opacity: .9; font-size: 14px; }
+  main { max-width: 1100px; margin: 20px auto 70px; padding: 0 18px; }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 10; background: #fff; padding: 14px 16px;
+    border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.12); margin-bottom: 18px;
+  }
+  .search-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .search {
+    flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #ccd1d8;
+    border-radius: 7px; font-size: 15px;
+  }
+  .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+  button {
+    padding: 9px 14px; border: 0; border-radius: 7px; font-weight: bold;
+    cursor: pointer; font-size: 13px; transition: background 0.15s;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .primary { background: #17365d; color: #fff; }
+  .primary:hover { background: #1f487a; }
+  .secondary { background: #e5e8ec; color: #222; }
+  .secondary:hover { background: #d6dbe1; }
+  .toggle-active { background: #17365d; color: #fff; }
+  .toggle-active:hover { background: #1f487a; }
+  .count { font-weight: bold; margin-left: 6px; font-size: 14px; color: #17365d; }
+  .status-msg { font-size: 13px; color: #15803d; font-weight: 600; margin-left: 6px; }
+
+  .panel {
+    background: #fff; border-radius: 10px; padding: 15px 17px; margin-bottom: 16px;
+    box-shadow: 0 1px 5px rgba(0,0,0,.08);
+  }
+  .panel h3 { margin: 0 0 10px; font-size: 15px; color: #17365d; display: flex; align-items: center; justify-content: space-between; }
+
+  /* Presets */
+  .preset-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .preset-btn {
+    background: #eef3f9; color: #17365d; border: 1px solid #c5d4e6;
+    padding: 7px 12px; font-size: 13px; border-radius: 6px;
+  }
+  .preset-btn:hover { background: #17365d; color: #fff; }
+
+  /* Handout customization & Custom Video Inputs */
+  .input-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .input-grid input {
+    flex: 1; min-width: 200px; padding: 9px 11px; border: 1px solid #ccd1d8;
+    border-radius: 7px; font-size: 14px;
+  }
+  .checkbox-inline {
+    display: flex; align-items: center; gap: 6px; font-size: 13px;
+    font-weight: 600; color: #333; margin-top: 8px; cursor: pointer;
+  }
+
+  /* Reorderable Selected Queue */
+  .order-list { display: flex; flex-direction: column; gap: 6px; }
+  .order-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    background: #f8fafc; border: 1px solid #dce3ec; border-radius: 7px;
+    cursor: grab; user-select: none;
+  }
+  .order-item:active { cursor: grabbing; }
+  .order-item.dragging { opacity: 0.45; border-style: dashed; }
+  .drag-handle { color: #64748b; font-weight: bold; font-size: 15px; }
+  .order-num {
+    background: #17365d; color: #fff; font-size: 11px; font-weight: bold;
+    width: 22px; height: 22px; border-radius: 50%; display: inline-flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .order-title { flex: 1; font-size: 14px; font-weight: 600; }
+  .order-controls { display: flex; gap: 4px; }
+  .mini-btn {
+    padding: 4px 8px; font-size: 12px; background: #e2e8f0; color: #1e293b;
+    border-radius: 5px;
+  }
+  .mini-btn:hover { background: #cbd5e1; }
+  .mini-btn.danger { background: #fee2e2; color: #b91c1c; }
+  .mini-btn.danger:hover { background: #fecaca; }
+
+  /* Categories */
+  .category {
+    background: #fff; border-radius: 10px; margin-bottom: 16px;
+    overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,.08);
+  }
+  .category-header {
+    display: flex; align-items: center; justify-content: flex-start; gap: 12px;
+    padding: 12px 17px; background: #e9edf2; cursor: pointer; user-select: none;
+  }
+  .category-header:hover { background: #dfe5ec; }
+  .collapse-arrow { font-size: 14px; color: #17365d; width: 16px; display: inline-block; }
+  .category-header h2 { margin: 0; font-size: 17px; }
+  .cat-select-btn {
+    background: #fff; color: #17365d; border: 1px solid #cbd2d9;
+    padding: 5px 11px; font-size: 12px; border-radius: 6px;
+  }
+  .cat-select-btn:hover { background: #17365d; color: #fff; border-color: #17365d; }
+
+  .video {
+    display: flex; align-items: center; gap: 12px; padding: 12px 17px;
+    border-top: 1px solid #eee;
+  }
+  .video:hover { background: #fafafa; }
+  .video label {
+    display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;
+  }
+  .video input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+  .title { font-weight: 600; font-size: 14px; }
+  .url-warning {
+    background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;
+    font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 5px;
+    margin-left: 8px;
+  }
+  .preview-link {
+    font-size: 12px; font-weight: bold; color: #17365d; text-decoration: none;
+    padding: 5px 10px; border-radius: 6px; background: #eef3f9; white-space: nowrap;
+  }
+  .preview-link:hover { background: #dce6f2; }
+  .preview-link.disabled {
+    background: #f1f5f9; color: #94a3b8; pointer-events: none;
+  }
+  .remove-btn {
+    background: transparent; color: #b91c1c; padding: 5px 8px; font-size: 12px;
+  }
+  .remove-btn:hover { background: #fee2e2; }
+  #qr-staging { position: absolute; left: -9999px; top: -9999px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>REACH Educational Video QR Generator</h1>
+  <p>Select exercises, customize handout details, reorder cards, and download a print-ready PDF.</p>
+</header>
+
+<main>
+  <div class="toolbar">
+    <div class="search-row">
+      <input id="search" class="search" placeholder="Search videos by title or discipline...">
+      <button type="button" id="selected-only-btn" class="secondary" onclick="toggleSelectedOnly()">Show Selected Only</button>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="secondary" onclick="selectAll()">Select All</button>
+      <button type="button" class="secondary" onclick="clearAll()">Clear All</button>
+      <button type="button" class="secondary" onclick="copyShareLink()">Copy Link to Selection</button>
+      <button type="button" id="gen-btn" class="primary" onclick="generatePDF()">Generate QR Code PDF</button>
+      <span class="count" id="count-badge">0 selected (0 pages)</span>
+      <span id="status" class="status-msg"></span>
+    </div>
+  </div>
+
+  <!-- Clinical Presets -->
+  <div class="panel">
+    <h3>Quick Clinical Presets / Bundles</h3>
+    <div class="preset-row" id="preset-buttons"></div>
+  </div>
+
+  <!-- PDF Handout Options -->
+  <div class="panel">
+    <h3>Handout Header & Print Options (Optional)</h3>
+    <div class="input-grid">
+      <input id="handout-header" placeholder="Handout Title / Patient Name (e.g., Home Exercise Program - J.D.)">
+      <input id="handout-notes" placeholder="Instructions / Frequency (e.g., Perform 2 sets of 10 reps, twice daily)">
+    </div>
+    <label class="checkbox-inline">
+      <input type="checkbox" id="cut-lines" checked>
+      Include subtle dashed cut-line borders around each QR card
+    </label>
+  </div>
+
+  <!-- Reorderable PDF Queue -->
+  <div class="panel" id="order-panel" style="display:none;">
+    <h3>
+      <span>PDF Card Order (Drag or use arrows to reorder)</span>
+      <span style="font-size:12px;font-weight:normal;color:#555;">6 cards per page</span>
+    </h3>
+    <div class="order-list" id="order-list"></div>
+  </div>
+
+  <!-- Add Custom Video -->
+  <div class="panel">
+    <h3>+ Add Custom Video (Saved to This Browser)</h3>
+    <div class="input-grid">
+      <input id="custom-title" placeholder="Title (e.g., PT - Custom Balance Drill)">
+      <input id="custom-url" placeholder="Video URL (https://...)">
+      <button type="button" class="secondary" onclick="addCustomVideo()">Add Video</button>
+    </div>
+  </div>
+
+  <div id="catalog"></div>
+</main>
+
+<div id="qr-staging"></div>
+
+<script>
+const DEFAULT_VIDEOS = [
+  { id: 1, category: "PT", title: "PT - Ankle Pumps", url: "https://www.youtube.com/watch?v=K51748A5K-w" },
+  { id: 2, category: "PT", title: "PT - Heel Slides", url: "https://www.youtube.com/watch?v=A9Y7D15A1wM" },
+  { id: 3, category: "PT", title: "PT - Leg Kicks", url: "https://www.youtube.com/watch?v=iteGhjOc3ZQ" },
+  { id: 4, category: "PT", title: "PT - Bridging", url: "https://www.youtube.com/watch?v=wPM8icPu6H8" },
+  { id: 5, category: "PT", title: "PT - Seated Marching", url: "https://www.youtube.com/watch?v=vA-rO9E-j3Q" },
+  { id: 6, category: "PT", title: "PT - Quad Set", url: "https://www.youtube.com/watch?v=k5K313X_y8I" },
+  { id: 7, category: "PT", title: "PT - Side Lying Hip Abduction", url: "https://www.youtube.com/watch?v=jvl9-e157gY" },
+  { id: 8, category: "PT", title: "PT - Sciatic Nerve Glides", url: "https://www.youtube.com/watch?v=eIH7URpwrIQ" },
+  { id: 9, category: "OT", title: "OT - Tendon Glides", url: "https://www.youtube.com/watch?v=E7e_fW38T60" },
+  { id: 10, category: "OT", title: "OT - Finger Opposition", url: "https://www.youtube.com/watch?v=y2A49A83i0A" },
+  { id: 11, category: "OT", title: "OT - Shoulder Range of Motion", url: "https://www.youtube.com/watch?v=T7s4n_6kZ_Y" },
+  { id: 12, category: "OT", title: "OT - Adaptive Dressing", url: "https://www.youtube.com/watch?v=m29W_L5518M" },
+  { id: 13, category: "SLP", title: "SLP - Effortful Swallow", url: "https://www.youtube.com/watch?v=0S97N0B4vY8" },
+  { id: 14, category: "SLP", title: "SLP - Mendelsohn Maneuver", url: "https://www.youtube.com/watch?v=xP7c_cW9kR4" },
+  { id: 15, category: "SLP", title: "SLP - Shaker Exercise", url: "https://www.youtube.com/watch?v=X8P5T4x2L6k" },
+  { id: 16, category: "SLP", title: "SLP - Lip and Tongue Exercises", url: "https://www.youtube.com/watch?v=zL9Q2V8W1nM" },
+  { id: 17, category: "SLP", title: "SLP - Communication Board", url: "REPLACE_WITH_COMMUNICATION_BOARD_URL" }
+];
+
+const CLINICAL_PRESETS = [
+  { name: "Lower Extremity / Post-Op Basics", ids: [1, 2, 3, 4, 6] },
+  { name: "Seated Mobility & Endurance", ids: [1, 5, 11] },
+  { name: "Upper Extremity & ADL Bundle", ids: [9, 10, 11, 12] },
+  { name: "Dysphagia & Oral Motor Bundle", ids: [13, 14, 15, 16] }
+];
+
+const STORAGE_KEY = "reach_custom_videos_v1";
+let allVideos = [];
+let selectedOrder = []; // Array of IDs preserving exact user/PDF order
+let collapsedCategories = new Set();
+let showSelectedOnly = false;
+let dragSourceIndex = null;
+
+function isValidUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  if (url.includes("REPLACE_WITH")) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function loadSavedCustomVideos() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomVideos() {
+  try {
+    const customs = allVideos.filter(v => v.isCustom);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(customs));
+  } catch (e) {
+    console.warn("Could not save custom videos to localStorage:", e);
+  }
+}
+
+function init() {
+  const savedCustoms = loadSavedCustomVideos();
+  allVideos = [...DEFAULT_VIDEOS, ...savedCustoms];
+
+  const params = new URLSearchParams(window.location.search);
+  const preset = params.get("ids");
+  if (preset) {
+    preset.split(",").forEach(raw => {
+      const num = Number(raw.trim());
+      if (!Number.isNaN(num) && allVideos.some(v => v.id === num) && !selectedOrder.includes(num)) {
+        selectedOrder.push(num);
+      }
+    });
+  }
+
+  renderPresets();
+  renderAll();
+}
+
+function renderPresets() {
+  const container = document.getElementById("preset-buttons");
+  container.innerHTML = "";
+  CLINICAL_PRESETS.forEach(p => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "preset-btn";
+    btn.textContent = p.name;
+    btn.onclick = () => {
+      selectedOrder = [...p.ids.filter(id => allVideos.some(v => v.id === id))];
+      showStatus(`Applied preset: ${p.name}`);
+      renderAll();
+    };
+    container.appendChild(btn);
+  });
+}
+
+function showStatus(msg) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 3000);
+}
+
+function toggleSelectedOnly() {
+  showSelectedOnly = !showSelectedOnly;
+  const btn = document.getElementById("selected-only-btn");
+  btn.className = showSelectedOnly ? "toggle-active" : "secondary";
+  btn.textContent = showSelectedOnly ? "Showing Selected Only" : "Show Selected Only";
+  renderCatalog();
+}
+
+function toggleCategoryCollapse(category) {
+  if (collapsedCategories.has(category)) collapsedCategories.delete(category);
+  else collapsedCategories.add(category);
+  renderCatalog();
+}
+
+function toggleCategorySelect(category, e) {
+  e.stopPropagation();
+  const catVideos = allVideos.filter(v => v.category === category);
+  const allChecked = catVideos.every(v => selectedOrder.includes(v.id));
+  if (allChecked) {
+    const catIds = new Set(catVideos.map(v => v.id));
+    selectedOrder = selectedOrder.filter(id => !catIds.has(id));
+  } else {
+    catVideos.forEach(v => {
+      if (!selectedOrder.includes(v.id)) selectedOrder.push(v.id);
+    });
+  }
+  renderAll();
+}
+
+function toggleVideo(id, checked) {
+  if (checked) {
+    if (!selectedOrder.includes(id)) selectedOrder.push(id);
+  } else {
+    selectedOrder = selectedOrder.filter(item => item !== id);
+  }
+  renderAll();
+}
+
+function renderAll() {
+  renderCatalog();
+  renderOrderList();
+  updateCountBadge();
+}
+
+function updateCountBadge() {
+  const count = selectedOrder.length;
+  const pages = count === 0 ? 0 : Math.ceil(count / 6);
+  const pageLabel = pages === 1 ? "1 page" : `${pages} pages`;
+  document.getElementById("count-badge").textContent = `${count} selected (${pageLabel})`;
+}
+
+function renderOrderList() {
+  const panel = document.getElementById("order-panel");
+  const list = document.getElementById("order-list");
+
+  if (selectedOrder.length === 0) {
+    panel.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+
+  panel.style.display = "block";
+  list.innerHTML = "";
+
+  selectedOrder.forEach((id, idx) => {
+    const v = allVideos.find(item => item.id === id);
+    if (!v) return;
+
+    const row = document.createElement("div");
+    row.className = "order-item";
+    row.draggable = true;
+
+    row.ondragstart = () => {
+      dragSourceIndex = idx;
+      row.classList.add("dragging");
+    };
+    row.ondragend = () => {
+      dragSourceIndex = null;
+      row.classList.remove("dragging");
+    };
+    row.ondragover = (e) => {
+      e.preventDefault();
+    };
+    row.ondrop = (e) => {
+      e.preventDefault();
+      if (dragSourceIndex === null || dragSourceIndex === idx) return;
+      const moved = selectedOrder.splice(dragSourceIndex, 1)[0];
+      selectedOrder.splice(idx, 0, moved);
+      renderAll();
+    };
+
+    const handle = document.createElement("span");
+    handle.className = "drag-handle";
+    handle.textContent = "☰";
+    handle.title = "Drag to reorder";
+
+    const num = document.createElement("span");
+    num.className = "order-num";
+    num.textContent = idx + 1;
+
+    const title = document.createElement("span");
+    title.className = "order-title";
+    title.textContent = v.title;
+
+    const controls = document.createElement("div");
+    controls.className = "order-controls";
+
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.className = "mini-btn";
+    upBtn.textContent = "↑";
+    upBtn.title = "Move up";
+    upBtn.disabled = idx === 0;
+    upBtn.onclick = () => {
+      [selectedOrder[idx - 1], selectedOrder[idx]] = [selectedOrder[idx], selectedOrder[idx - 1]];
+      renderAll();
+    };
+
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.className = "mini-btn";
+    downBtn.textContent = "↓";
+    downBtn.title = "Move down";
+    downBtn.disabled = idx === selectedOrder.length - 1;
+    downBtn.onclick = () => {
+      [selectedOrder[idx + 1], selectedOrder[idx]] = [selectedOrder[idx], selectedOrder[idx + 1]];
+      renderAll();
+    };
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "mini-btn danger";
+    removeBtn.textContent = "✕";
+    removeBtn.title = "Remove from selection";
+    removeBtn.onclick = () => toggleVideo(id, false);
+
+    controls.appendChild(upBtn);
+    controls.appendChild(downBtn);
+    controls.appendChild(removeBtn);
+
+    row.appendChild(handle);
+    row.appendChild(num);
+    row.appendChild(title);
+    row.appendChild(controls);
+    list.appendChild(row);
+  });
+}
+
+function renderCatalog() {
+  const container = document.getElementById("catalog");
+  const q = document.getElementById("search").value.toLowerCase();
+  const groups = {};
+
+  allVideos.forEach(v => {
+    if (!groups[v.category]) groups[v.category] = [];
+    groups[v.category].push(v);
+  });
+
+  container.innerHTML = "";
+  Object.entries(groups).forEach(([category, vids]) => {
+    const isCollapsed = collapsedCategories.has(category);
+    const section = document.createElement("section");
+    section.className = "category";
+
+    const headerBar = document.createElement("div");
+    headerBar.className = "category-header";
+    headerBar.onclick = () => toggleCategoryCollapse(category);
+
+    const arrow = document.createElement("span");
+    arrow.className = "collapse-arrow";
+    arrow.textContent = isCollapsed ? "▸" : "▾";
+
+    const h2 = document.createElement("h2");
+    h2.textContent = category;
+
+    const allChecked = vids.every(v => selectedOrder.includes(v.id));
+    const catBtn = document.createElement("button");
+    catBtn.type = "button";
+    catBtn.className = "cat-select-btn";
+    catBtn.textContent = allChecked ? `Clear ${category}` : `Select All ${category}`;
+    catBtn.onclick = (e) => toggleCategorySelect(category, e);
+
+    headerBar.appendChild(arrow);
+    headerBar.appendChild(h2);
+    headerBar.appendChild(catBtn);
+    section.appendChild(headerBar);
+
+    let visibleCount = 0;
+    vids.forEach(v => {
+      const isSelected = selectedOrder.includes(v.id);
+      const matchesSearch = (v.title + " " + v.category).toLowerCase().includes(q);
+      const matchesFilter = !showSelectedOnly || isSelected;
+      const visible = matchesSearch && matchesFilter;
+      if (visible) visibleCount++;
+
+      const row = document.createElement("div");
+      row.className = "video";
+      row.style.display = (!isCollapsed && visible) ? "flex" : "none";
+
+      const label = document.createElement("label");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = isSelected;
+      cb.onchange = () => toggleVideo(v.id, cb.checked);
+
+      const span = document.createElement("span");
+      span.className = "title";
+      span.textContent = v.title;
+
+      label.appendChild(cb);
+      label.appendChild(span);
+
+      const valid = isValidUrl(v.url);
+      if (!valid) {
+        const warn = document.createElement("span");
+        warn.className = "url-warning";
+        warn.textContent = "⚠ Invalid / Placeholder URL";
+        warn.title = `Current URL (${v.url}) is not a valid web link.`;
+        label.appendChild(warn);
+      }
+
+      row.appendChild(label);
+
+      const preview = document.createElement("a");
+      preview.className = valid ? "preview-link" : "preview-link disabled";
+      preview.href = valid ? v.url : "#";
+      preview.target = "_blank";
+      preview.rel = "noopener noreferrer";
+      preview.textContent = "Preview ↗";
+      row.appendChild(preview);
+
+      if (v.isCustom) {
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "remove-btn";
+        del.textContent = "Delete";
+        del.title = "Delete saved custom video";
+        del.onclick = () => {
+          selectedOrder = selectedOrder.filter(item => item !== v.id);
+          allVideos = allVideos.filter(item => item.id !== v.id);
+          saveCustomVideos();
+          renderAll();
+        };
+        row.appendChild(del);
+      }
+
+      section.appendChild(row);
+    });
+
+    if (visibleCount === 0 && (q || showSelectedOnly)) {
+      section.style.display = "none";
+    }
+    container.appendChild(section);
+  });
+}
+
+function selectAll() {
+  allVideos.forEach(v => {
+    if (!selectedOrder.includes(v.id)) selectedOrder.push(v.id);
+  });
+  renderAll();
+}
+
+function clearAll() {
+  selectedOrder = [];
+  renderAll();
+}
+
+function addCustomVideo() {
+  const titleEl = document.getElementById("custom-title");
+  const urlEl = document.getElementById("custom-url");
+  const title = titleEl.value.trim();
+  const url = urlEl.value.trim();
+
+  if (!title || !url) {
+    alert("Please enter both a title and a URL.");
+    return;
+  }
+  if (!isValidUrl(url)) {
+    const proceed = confirm("Warning: That URL does not start with http:// or https://. Add it anyway?");
+    if (!proceed) return;
+  }
+
+  const newId = "custom-" + Date.now();
+  allVideos.push({ id: newId, category: "Custom", title: title, url: url, isCustom: true });
+  selectedOrder.push(newId);
+  saveCustomVideos();
+
+  titleEl.value = "";
+  urlEl.value = "";
+  showStatus("Custom video saved to browser!");
+  renderAll();
+}
+
+function copyShareLink() {
+  const standardIds = selectedOrder.filter(id => typeof id === "number");
+  if (standardIds.length === 0) {
+    alert("Select at least one standard video from the list to copy a shareable link.");
+    return;
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("ids", standardIds.join(","));
+  navigator.clipboard.writeText(url.toString()).then(() => {
+    showStatus("Link copied to clipboard!");
+  });
+}
+
+function makeQrDataUrl(text) {
+  return new Promise((resolve) => {
+    const staging = document.getElementById("qr-staging");
+    staging.innerHTML = "";
+    new QRCode(staging, {
+      text: text,
+      width: 360,
+      height: 360,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    setTimeout(() => {
+      const canvas = staging.querySelector("canvas");
+      if (canvas) {
+        resolve(canvas.toDataURL("image/png"));
+      } else {
+        const img = staging.querySelector("img");
+        resolve(img ? img.src : "");
+      }
+    }, 30);
+  });
+}
+
+async function generatePDF() {
+  const selected = selectedOrder
+    .map(id => allVideos.find(v => v.id === id))
+    .filter(Boolean);
+
+  if (selected.length === 0) {
+    alert("Please select at least one video.");
+    return;
+  }
+
+  const invalidItems = selected.filter(v => !isValidUrl(v.url));
+  if (invalidItems.length > 0) {
+    const names = invalidItems.map(v => v.title).join(", ");
+    const proceed = confirm(`Warning: The following selected item(s) have a placeholder or invalid URL and will not open a valid video when scanned:
+
+${names}
+
+Generate PDF anyway?`);
+    if (!proceed) return;
+  }
+
+  const btn = document.getElementById("gen-btn");
+  btn.disabled = true;
+  btn.textContent = "Generating PDF...";
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "portrait", unit: "in", format: "letter" });
+    const pw = 8.5, ph = 11.0;
+    const cols = 2, rows = 3;
+    const mx = 0.55;
+
+    const headerText = document.getElementById("handout-header").value.trim();
+    const notesText = document.getElementById("handout-notes").value.trim();
+    const drawCutLines = document.getElementById("cut-lines").checked;
+
+    const hasTopBanner = Boolean(headerText || notesText);
+    const topMargin = hasTopBanner ? 1.15 : 0.55;
+    const bottomMargin = 0.50;
+    const cw = (pw - 2 * mx) / cols;
+    const ch = (ph - topMargin - bottomMargin) / rows;
+    const qrSize = hasTopBanner ? 1.56 : 1.72;
+
+    function drawPageHeader(pageNum, totalPages) {
+      if (!hasTopBanner) return;
+      let yCursor = 0.45;
+      if (headerText) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(23, 54, 93);
+        doc.text(headerText, mx, yCursor);
+        yCursor += 0.22;
+      }
+      if (notesText) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(60, 60, 60);
+        const wrapped = doc.splitTextToSize(notesText, pw - 2 * mx);
+        doc.text(wrapped[0], mx, yCursor);
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`Page ${pageNum} of ${totalPages}`, pw - mx, 0.45, { align: "right" });
+
+      doc.setDrawColor(200, 208, 218);
+      doc.setLineDashPattern([], 0);
+      doc.line(mx, topMargin - 0.12, pw - mx, topMargin - 0.12);
+      doc.setTextColor(0, 0, 0);
+    }
+
+    const totalPages = Math.ceil(selected.length / 6);
+
+    for (let i = 0; i < selected.length; i++) {
+      const v = selected[i];
+      const pos = i % 6;
+      const pageNum = Math.floor(i / 6) + 1;
+
+      if (pos === 0) {
+        if (i > 0) doc.addPage();
+        drawPageHeader(pageNum, totalPages);
+      }
+
+      const col = pos % 2;
+      const row = Math.floor(pos / 2);
+      const x = mx + col * cw;
+      const cellTop = topMargin + row * ch;
+
+      if (drawCutLines) {
+        doc.setDrawColor(190, 196, 204);
+        doc.setLineDashPattern([0.06, 0.06], 0);
+        doc.rect(x + 0.04, cellTop + 0.04, cw - 0.08, ch - 0.08);
+        doc.setLineDashPattern([], 0);
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11.5);
+      doc.setTextColor(20, 20, 20);
+      const title = v.title.length <= 36 ? v.title : v.title.slice(0, 33) + "...";
+      doc.text(title, x + cw / 2, cellTop + 0.27, { align: "center" });
+
+      const qrDataUrl = await makeQrDataUrl(v.url);
+      const qx = x + (cw - qrSize) / 2;
+      const qy = cellTop + (ch - qrSize) / 2 + 0.03;
+      doc.addImage(qrDataUrl, "PNG", qx, qy, qrSize, qrSize);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(90, 90, 90);
+      doc.text("Scan to watch video", x + cw / 2, cellTop + ch - 0.16, { align: "center" });
+    }
+
+    doc.save("REACH_Video_QR_Codes.pdf");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Generate QR Code PDF";
+  }
+}
+
+document.getElementById("search").addEventListener("input", renderCatalog);
+init();
+</script>
+</body>
+</html>
