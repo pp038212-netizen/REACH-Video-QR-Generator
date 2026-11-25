@@ -37,7 +37,16 @@
     background: #fff; border-radius: 10px; margin-bottom: 18px;
     overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,.08);
   }
-  .category h2 { margin: 0; padding: 14px 17px; background: #e9edf2; font-size: 18px; }
+  .category-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 17px; background: #e9edf2;
+  }
+  .category-header h2 { margin: 0; font-size: 18px; }
+  .cat-select-btn {
+    background: #fff; color: #17365d; border: 1px solid #cbd2d9;
+    padding: 6px 12px; font-size: 13px; border-radius: 6px;
+  }
+  .cat-select-btn:hover { background: #17365d; color: #fff; border-color: #17365d; }
   .video {
     display: flex; align-items: center; gap: 12px; padding: 13px 17px;
     border-top: 1px solid #eee; cursor: pointer;
@@ -121,6 +130,18 @@ async function init() {
   }
 }
 
+function toggleCategory(category) {
+  const catVideos = allVideos.filter(v => v.category === category);
+  const allChecked = catVideos.every(v => selectedIds.has(v.id));
+
+  if (allChecked) {
+    catVideos.forEach(v => selectedIds.delete(v.id));
+  } else {
+    catVideos.forEach(v => selectedIds.add(v.id));
+  }
+  renderCatalog();
+}
+
 function renderCatalog() {
   const container = document.getElementById('catalog');
   const q = document.getElementById('search').value.toLowerCase();
@@ -136,9 +157,22 @@ function renderCatalog() {
     const section = document.createElement('section');
     section.className = 'category';
 
+    const headerBar = document.createElement('div');
+    headerBar.className = 'category-header';
+
     const h2 = document.createElement('h2');
     h2.textContent = category;
-    section.appendChild(h2);
+
+    const allChecked = vids.every(v => selectedIds.has(v.id));
+    const catBtn = document.createElement('button');
+    catBtn.type = 'button';
+    catBtn.className = 'cat-select-btn';
+    catBtn.textContent = allChecked ? `Clear ${category}` : `Select All ${category}`;
+    catBtn.onclick = () => toggleCategory(category);
+
+    headerBar.appendChild(h2);
+    headerBar.appendChild(catBtn);
+    section.appendChild(headerBar);
 
     let visibleCount = 0;
     vids.forEach(v => {
@@ -155,7 +189,7 @@ function renderCatalog() {
       cb.onchange = () => {
         if (cb.checked) selectedIds.add(v.id);
         else selectedIds.delete(v.id);
-        updateCount();
+        renderCatalog();
       };
 
       const span = document.createElement('span');
