@@ -1,51 +1,326 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>REACH Video QR Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
-*{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#222}
-header{background:#17365d;color:#fff;padding:28px 34px}
-header h1{margin:0 0 7px;font-size:28px} header p{margin:0;opacity:.9}
-main{max-width:1050px;margin:24px auto 70px;padding:0 18px}
-.toolbar{position:sticky;top:0;z-index:5;background:#fff;padding:15px;border-radius:10px;
-box-shadow:0 2px 12px rgba(0,0,0,.12);margin-bottom:20px}
-.search{width:100%;padding:12px;border:1px solid #ccd1d8;border-radius:7px;font-size:15px;margin-bottom:12px}
-button{padding:10px 16px;border:0;border-radius:7px;font-weight:bold;cursor:pointer;margin-right:7px}
-.primary{background:#17365d;color:#fff}.secondary{background:#e5e8ec}.count{font-weight:bold;margin-left:5px}
-.category{background:#fff;border-radius:10px;margin-bottom:18px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.08)}
-.category h2{margin:0;padding:14px 17px;background:#e9edf2;font-size:18px}
-.video{display:flex;align-items:center;gap:12px;padding:13px 17px;border-top:1px solid #eee;cursor:pointer}
-.video:hover{background:#fafafa}.video input{width:18px;height:18px}.title{font-weight:600}
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, sans-serif; background: #f4f6f8; color: #222; }
+  header { background: #17365d; color: #fff; padding: 28px 34px; }
+  header h1 { margin: 0 0 7px; font-size: 28px; }
+  header p { margin: 0; opacity: .9; }
+  main { max-width: 1050px; margin: 24px auto 70px; padding: 0 18px; }
+  .toolbar {
+    position: sticky; top: 0; z-index: 5; background: #fff; padding: 15px;
+    border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.12); margin-bottom: 20px;
+  }
+  .search {
+    width: 100%; padding: 12px; border: 1px solid #ccd1d8; border-radius: 7px;
+    font-size: 15px; margin-bottom: 12px;
+  }
+  .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+  button {
+    padding: 10px 16px; border: 0; border-radius: 7px; font-weight: bold;
+    cursor: pointer; font-size: 14px;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .primary { background: #17365d; color: #fff; }
+  .primary:hover { background: #1f487a; }
+  .secondary { background: #e5e8ec; color: #222; }
+  .secondary:hover { background: #d6dbe1; }
+  .count { font-weight: bold; margin-left: 6px; }
+  .status-msg { font-size: 13px; color: #17365d; font-weight: 600; margin-left: 8px; }
+  .category {
+    background: #fff; border-radius: 10px; margin-bottom: 18px;
+    overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,.08);
+  }
+  .category h2 { margin: 0; padding: 14px 17px; background: #e9edf2; font-size: 18px; }
+  .video {
+    display: flex; align-items: center; gap: 12px; padding: 13px 17px;
+    border-top: 1px solid #eee; cursor: pointer;
+  }
+  .video:hover { background: #fafafa; }
+  .video input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+  .title { font-weight: 600; flex: 1; }
+  .remove-btn {
+    background: transparent; color: #b91c1c; padding: 4px 8px; font-size: 12px;
+  }
+  .remove-btn:hover { background: #fee2e2; }
+  .custom-box {
+    background: #fff; border-radius: 10px; padding: 16px 17px; margin-bottom: 18px;
+    box-shadow: 0 1px 5px rgba(0,0,0,.08);
+  }
+  .custom-box h3 { margin: 0 0 10px; font-size: 16px; color: #17365d; }
+  .custom-inputs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .custom-inputs input {
+    flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ccd1d8;
+    border-radius: 7px; font-size: 14px;
+  }
+  #qr-staging { position: absolute; left: -9999px; top: -9999px; }
 </style>
 </head>
 <body>
-<header><h1>REACH Educational Video QR Generator</h1>
-<p>Select videos and create a print-ready PDF of QR codes.</p></header>
-<main><form id="form" method="post" action="/generate">
-<div class="toolbar">
-<input id="search" class="search" placeholder="Search videos...">
-<button type="button" class="secondary" onclick="selectAll()">Select All</button>
-<button type="button" class="secondary" onclick="clearAll()">Clear All</button>
-<button type="button" class="primary" onclick="generate()">Generate QR Code PDF</button>
-<span class="count"><span id="count">0</span> selected</span>
-</div>
-{% for category, vids in categories.items() %}
-<section class="category"><h2>{{category}}</h2>
-{% for v in vids %}
-<label class="video" data-search="{{(v.title+' '+v.category)|lower}}">
-<input type="checkbox" name="video_ids" value="{{v.id}}" onchange="update()">
-<span class="title">{{v.title}}</span></label>
-{% endfor %}</section>
-{% endfor %}
-</form></main>
+<header>
+  <h1>REACH Educational Video QR Generator</h1>
+  <p>Select videos and create a print-ready PDF of QR codes.</p>
+</header>
+
+<main>
+  <div class="toolbar">
+    <input id="search" class="search" placeholder="Search videos...">
+    <div class="btn-row">
+      <button type="button" class="secondary" onclick="selectAll()">Select All</button>
+      <button type="button" class="secondary" onclick="clearAll()">Clear All</button>
+      <button type="button" class="secondary" onclick="copyShareLink()">Copy Link to Selection</button>
+      <button type="button" id="gen-btn" class="primary" onclick="generatePDF()">Generate QR Code PDF</button>
+      <span class="count"><span id="count">0</span> selected</span>
+      <span id="status" class="status-msg"></span>
+    </div>
+  </div>
+
+  <div class="custom-box">
+    <h3>+ Add Custom Video to This PDF</h3>
+    <div class="custom-inputs">
+      <input id="custom-title" placeholder="Title (e.g., PT - Custom Balance Drill)">
+      <input id="custom-url" placeholder="Video URL (https://...)">
+      <button type="button" class="secondary" onclick="addCustomVideo()">Add Video</button>
+    </div>
+  </div>
+
+  <div id="catalog">Loading videos...</div>
+</main>
+
+<div id="qr-staging"></div>
+
 <script>
-const boxes=()=>[...document.querySelectorAll('input[name="video_ids"]')];
-function update(){document.getElementById('count').textContent=boxes().filter(x=>x.checked).length}
-function selectAll(){boxes().forEach(x=>x.checked=true);update()}
-function clearAll(){boxes().forEach(x=>x.checked=false);update()}
-function generate(){if(!boxes().some(x=>x.checked)){alert('Please select at least one video.');return}document.getElementById('form').submit()}
-document.getElementById('search').addEventListener('input',e=>{
-const q=e.target.value.toLowerCase();document.querySelectorAll('.video').forEach(v=>v.style.display=v.dataset.search.includes(q)?'flex':'none')})
+let allVideos = [];
+let selectedIds = new Set();
+let customCounter = 1;
+
+async function init() {
+  try {
+    const res = await fetch('videos.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error('Could not load videos.json');
+    allVideos = await res.json();
+
+    const params = new URLSearchParams(window.location.search);
+    const preset = params.get('ids');
+    if (preset) {
+      preset.split(',').forEach(raw => {
+        const num = Number(raw.trim());
+        if (!Number.isNaN(num)) selectedIds.add(num);
+      });
+    }
+    renderCatalog();
+  } catch (err) {
+    document.getElementById('catalog').innerHTML =
+      '<p style="color:#b91c1c;font-weight:bold;">Error loading videos.json. Make sure videos.json is in the same folder as index.html.</p>';
+  }
+}
+
+function renderCatalog() {
+  const container = document.getElementById('catalog');
+  const q = document.getElementById('search').value.toLowerCase();
+  const groups = {};
+
+  allVideos.forEach(v => {
+    if (!groups[v.category]) groups[v.category] = [];
+    groups[v.category].push(v);
+  });
+
+  container.innerHTML = '';
+  Object.entries(groups).forEach(([category, vids]) => {
+    const section = document.createElement('section');
+    section.className = 'category';
+
+    const h2 = document.createElement('h2');
+    h2.textContent = category;
+    section.appendChild(h2);
+
+    let visibleCount = 0;
+    vids.forEach(v => {
+      const matches = (v.title + ' ' + v.category).toLowerCase().includes(q);
+      if (matches) visibleCount++;
+
+      const label = document.createElement('label');
+      label.className = 'video';
+      label.style.display = matches ? 'flex' : 'none';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selectedIds.has(v.id);
+      cb.onchange = () => {
+        if (cb.checked) selectedIds.add(v.id);
+        else selectedIds.delete(v.id);
+        updateCount();
+      };
+
+      const span = document.createElement('span');
+      span.className = 'title';
+      span.textContent = v.title;
+
+      label.appendChild(cb);
+      label.appendChild(span);
+
+      if (v.isCustom) {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'remove-btn';
+        del.textContent = 'Remove';
+        del.onclick = (e) => {
+          e.preventDefault();
+          selectedIds.delete(v.id);
+          allVideos = allVideos.filter(item => item.id !== v.id);
+          renderCatalog();
+        };
+        label.appendChild(del);
+      }
+
+      section.appendChild(label);
+    });
+
+    if (visibleCount === 0 && q) section.style.display = 'none';
+    container.appendChild(section);
+  });
+
+  updateCount();
+}
+
+function updateCount() {
+  document.getElementById('count').textContent = selectedIds.size;
+}
+
+function selectAll() {
+  allVideos.forEach(v => selectedIds.add(v.id));
+  renderCatalog();
+}
+
+function clearAll() {
+  selectedIds.clear();
+  renderCatalog();
+}
+
+function addCustomVideo() {
+  const titleEl = document.getElementById('custom-title');
+  const urlEl = document.getElementById('custom-url');
+  const title = titleEl.value.trim();
+  const url = urlEl.value.trim();
+
+  if (!title || !url) {
+    alert('Please enter both a title and a URL.');
+    return;
+  }
+  const newId = 'custom-' + (customCounter++);
+  allVideos.push({
+    id: newId,
+    category: 'Custom',
+    title: title,
+    url: url,
+    isCustom: true
+  });
+  selectedIds.add(newId);
+  titleEl.value = '';
+  urlEl.value = '';
+  renderCatalog();
+}
+
+function copyShareLink() {
+  const standardIds = [...selectedIds].filter(id => typeof id === 'number');
+  if (standardIds.length === 0) {
+    alert('Select at least one standard video from the list to copy a shareable link.');
+    return;
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set('ids', standardIds.join(','));
+  navigator.clipboard.writeText(url.toString()).then(() => {
+    const status = document.getElementById('status');
+    status.textContent = 'Link copied to clipboard!';
+    setTimeout(() => { status.textContent = ''; }, 3000);
+  });
+}
+
+function makeQrDataUrl(text) {
+  return new Promise((resolve) => {
+    const staging = document.getElementById('qr-staging');
+    staging.innerHTML = '';
+    new QRCode(staging, {
+      text: text,
+      width: 360,
+      height: 360,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    setTimeout(() => {
+      const canvas = staging.querySelector('canvas');
+      if (canvas) {
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        const img = staging.querySelector('img');
+        resolve(img ? img.src : '');
+      }
+    }, 30);
+  });
+}
+
+async function generatePDF() {
+  const selected = allVideos.filter(v => selectedIds.has(v.id));
+  if (selected.length === 0) {
+    alert('Please select at least one video.');
+    return;
+  }
+
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating PDF...';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+    const pw = 8.5, ph = 11.0;
+    const cols = 2, rows = 3;
+    const mx = 0.55, my = 0.55;
+    const cw = (pw - 2 * mx) / cols;
+    const ch = (ph - 2 * my) / rows;
+    const qrSize = 1.72;
+
+    for (let i = 0; i < selected.length; i++) {
+      const v = selected[i];
+      const pos = i % 6;
+      if (pos === 0 && i > 0) doc.addPage();
+
+      const col = pos % 2;
+      const row = Math.floor(pos / 2);
+      const x = mx + col * cw;
+      const cellTop = my + row * ch;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      const title = v.title.length <= 34 ? v.title : v.title.slice(0, 31) + '...';
+      doc.text(title, x + cw / 2, cellTop + 0.28, { align: 'center' });
+
+      const qrDataUrl = await makeQrDataUrl(v.url);
+      const qx = x + (cw - qrSize) / 2;
+      const qy = cellTop + (ch - qrSize) / 2 + 0.04;
+      doc.addImage(qrDataUrl, 'PNG', qx, qy, qrSize, qrSize);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('Scan to watch video', x + cw / 2, cellTop + ch - 0.17, { align: 'center' });
+    }
+
+    doc.save('REACH_Video_QR_Codes.pdf');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate QR Code PDF';
+  }
+}
+
+document.getElementById('search').addEventListener('input', renderCatalog);
+init();
 </script>
-</body></html>
+</body>
+</html>
